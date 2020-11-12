@@ -43,6 +43,7 @@ class Lexer(object):
         self.current_char = self.text[self.pos]
     
     def error(self):
+        print(self.current_char)
         raise Exception('Invalid character. ')
 
     def advance(self):
@@ -98,12 +99,13 @@ class Lexer(object):
         return int(result, 8)
 
     def escape_sequence(self) -> int:
-        # TODO: implement escape sequence
         if self.current_char != '\\':
             self.error()
         self.advance()
         if self.current_char in simple_escape_sequence.keys():
-            return ord(simple_escape_sequence[self.current_char])
+            result = ord(simple_escape_sequence[self.current_char])
+            self.advance()
+            return result
         elif self.current_char == 'x':
             self.advance()
             return self.hexadecimal_escape_sequence()
@@ -123,7 +125,7 @@ class Lexer(object):
                 result.append(self.escape_sequence())
             else:
                 result.append(ord(self.current_char))
-            self.advance()
+                self.advance()
         self.error()
     
     def _id(self) -> str:
