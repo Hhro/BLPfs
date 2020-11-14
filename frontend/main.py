@@ -5,7 +5,7 @@ from blpfs_parser import Parser
 from blpfs_lexer import Lexer
 from blpfs_interpreter import Interpreter
 
-DEFAULT_FD = 1
+DEFAULT_FD = 3
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='blpfs VM entrypoint')
