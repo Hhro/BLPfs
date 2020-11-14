@@ -12,20 +12,34 @@ const int kFileHeaderSize = kNameSize + kLengthSize;
 const int kFileSize = 256;
 const int kCacheSize = 4;
 
+// Levels
+const int kUserLevel = 1;
+const int kAdminLevel = 2;
 const int kMaxLevel = 3;
 
+// Return Codes
+const int kSuccess = 0;
 const int kFileNotFound = -1;
+const int kFSCorrupted = -2;
+const int kFSNotOpened = -3;
+const int kOutOfBound = -4;
+const int kNotPermitted = -5;
+const int kAlreadyExists = -6;
+const int kInvalid = -7;
+
+// Variable Status
+const int kUndefined = -1;
 
 struct FileHeader {
   std::string name;
-  unsigned int length : 13;
-  unsigned int level : 2;
-  unsigned int in_use : 1;
+  uint16_t length;
+  uint8_t level;
+  uint8_t in_use;
 };
 
 struct CacheEntry {
   FileHeader fheader;
-  unsigned int offset;
+  uint8_t offset;
 };
 
 class File {
@@ -46,7 +60,7 @@ class File {
 
 class Cache {
  private:
-  typedef std::map<std::string, CacheEntry> Slot;
+  typedef std::map<std::string, CacheEntry*> Slot;
   Slot slots_;
 
   std::string threshold_;
@@ -68,14 +82,12 @@ class Cache {
   Slot::iterator end() { return slots_.end(); }
 
   // get_item
-  inline const CacheEntry& operator[](const std::string key) {
-    return slots_[key];
-  }
+  inline CacheEntry*& operator[](const std::string key) { return slots_[key]; }
 
   // methods
   bool Hit(const std::string& key) { return slots_.find(key) != slots_.end(); }
-  void Put(const std::string& key, const CacheEntry& entry);
-  bool Get(const std::string& key, CacheEntry& entry);
+  void Put(const std::string& key, CacheEntry*& entry);
+  bool Get(const std::string& key, CacheEntry*& entry);
 };
 
 class FileSystemManager {
@@ -85,6 +97,7 @@ class FileSystemManager {
   Cache cache_;
 
   int FindFile(const std::string& fname);
+  int FindEmptyBlock();
   void Ref(const std::string& key);
   bool ParseFileHeader(const char* raw, FileHeader& fh) const;
   inline bool Rewind() {
@@ -94,11 +107,12 @@ class FileSystemManager {
 
  public:
   bool MountBLPfs(const std::string& fs);
-  int CreateFile(const std::string& fname, const uint8_t level);
-  int ReadFile(const std::string& fname, const uint32_t pos,
-               const uint32_t len);
+  int CreateFile(const std::string& fname, const uint16_t fsize,
+                 const uint8_t flevel, const uint8_t ulevel);
+  int ReadFile(const std::string& fname, const uint32_t pos, const uint32_t len,
+               const uint8_t ulevel, char* out);
   int WriteFile(const std::string& fname, const uint32_t pos,
-                const uint32_t len, const char& data);
+                const uint32_t len, const char* data, const uint32_t ulevel);
   bool RemoveFile(const std::string& fname);
   int SizeFile(const std::string& fname);
 };
