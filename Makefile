@@ -29,7 +29,7 @@ deploy: build
 
 #Copy scripts & config
 	cp scripts/cleaner.sh $(DEPLOYDIR)
-	cp scripts/run.sh $(DEPLOYDIR)
+	cp scripts/run_deploy.sh $(DEPLOYDIR)/run.sh
 	cp scripts/deploy.sh $(DEPLOYDIR)
 	cp config/blpfsm.xinetd $(DEPLOYDIR)
 
@@ -48,6 +48,8 @@ production: build
 
 	#Copy a filesystem
 	$(BACKENDSRC)/tool/fs_gen $(BACKENDPRODUCTION)/blpfs $(PRODUCTIONFLAG)
+
+	cp scripts/run_production.sh $(PRODUCTIONDIR)/run.sh
 	
 clean:
 	#Clean src directory
