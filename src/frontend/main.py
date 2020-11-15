@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 from blpfs_parser import Parser
@@ -9,7 +9,8 @@ DEFAULT_FD = 3
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='blpfs VM entrypoint')
-    parser.add_argument('code', type=str, nargs='?', help='Code to execute. If none, show prompt. ')
+    parser.add_argument('code', type=str, nargs='?',
+                        help='Code to execute. If none, show prompt. ')
 
     args = parser.parse_args()
     code = args.code
@@ -18,7 +19,7 @@ if __name__ == "__main__":
             line = input('> ')
             if line == 'exit':
                 break
-            
+
             lexer = Lexer(line)
             parser = Parser(lexer)
             interpreter = Interpreter(parser, DEFAULT_FD)
@@ -28,4 +29,3 @@ if __name__ == "__main__":
         parser = Parser(lexer)
         interpreter = Interpreter(parser, DEFAULT_FD)
         interpreter.interpret()
-        
