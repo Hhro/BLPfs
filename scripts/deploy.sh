@@ -11,7 +11,7 @@ chown 1001:1001 *.sh
 chown -R 1001:1001 /home/user/backend
 chown -R 1001:1001 /home/user/frontend
 
-su user -c "crontab -l | grep cleaner.sh || (crontab -l 2>/dev/null; echo \"*/5 * * * * cleaner.sh\") | crontab -"
+su user -c "crontab -l | grep /home/user/cleaner.sh || (crontab -l 2>/dev/null; echo \"*/5 * * * * /home/user/cleaner.sh\") | crontab -"
 
 /etc/init.d/xinetd stop || true
 /etc/init.d/xinetd start
