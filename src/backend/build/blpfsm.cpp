@@ -12,7 +12,6 @@ int main(int argc, char *argv[]) {
   FileSystemManager FSM;
 
   if (FSM.MountBLPfs(argv[1])) {
-    FSM.DismountBLPfs();
     Dispatcher Dispatcher(&FSM);
   };
 }

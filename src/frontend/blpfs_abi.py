@@ -7,6 +7,8 @@ CMD = {
     'write': 1,
     'remove': 2,
     'size': 3,
+    'execute': 4,
+    'createfile': 5
 }
 
 def check_fd_open(fd: int) -> bool:
@@ -74,3 +76,38 @@ def size(fd: int, filename: bytearray) -> int:
         raise Exception('Something is wrong')
 
     return struct.unpack('<I', os.read(fd, 4))[0]
+
+
+def execute(fd: int, filename: bytearray) -> bytearray:
+    if len(filename) > 8:
+        return 0
+    filename = filename.ljust(8, b'\x00')
+    
+    msg = bytearray()
+    msg.append(CMD['execute'])
+    msg.extend(filename)
+
+    if os.write(fd, msg) != len(msg):
+        raise Exception('Something is wrong')
+
+    length = struct.unpack('<I', os.read(fd, 4))[0]
+    return bytearray(os.read(fd, length))
+
+def createfile(fd: int, filename: bytearray, size: int, flevel: int) -> int:
+    if len(filename) > 8:
+        return 0
+    filename = filename.ljust(8, b'\x00')
+    if not (0 <= size and size <= 0x100):
+        return 0
+    if not (0 <= flevel and flevel <= 3):
+        return 0
+    
+    msg = bytearray()
+    msg.append(CMD['createfile'])
+    msg.extend(filename)
+    msg.extend(struct.pack('<II', size, flevel))
+
+    if os.write(fd, msg) != len(msg):
+        raise Exception('Something is wrong')
+
+    return 0

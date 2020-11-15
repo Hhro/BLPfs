@@ -19,11 +19,14 @@ if __name__ == "__main__":
             line = input('> ')
             if line == 'exit':
                 break
-
-            lexer = Lexer(line)
-            parser = Parser(lexer)
-            interpreter = Interpreter(parser, DEFAULT_FD)
-            interpreter.interpret()
+            
+            try:
+                lexer = Lexer(line)
+                parser = Parser(lexer)
+                interpreter = Interpreter(parser, DEFAULT_FD)
+                interpreter.interpret()
+            except:
+                pass
     else:
         lexer = Lexer(code)
         parser = Parser(lexer)

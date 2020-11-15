@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <string>
+#include <iostream>
 
 #ifndef FRONTEND_DIR
 #define FRONTEND_DIR "./frontend/"
@@ -23,20 +24,12 @@
 #define OP_REMOVE 2
 #define OP_SIZE 3
 #define OP_EXECUTE 4
+#define OP_CREATEFILE 5
 
 Dispatcher::Dispatcher(FileSystemManager *fs_mgr) {
   this->fs_mgr_ = fs_mgr;
   this->ExecuteEntryVM();
 }
-
-/**
-int Dispatcher::ExecuteVM(std::string &filename) {
-    int conn[2];
-    int output[2];
-    pid_t pid = fork();
-
-}
-**/
 
 void Dispatcher::ExecuteEntryVM() {
   int sockets[2];
@@ -51,7 +44,6 @@ void Dispatcher::ExecuteEntryVM() {
     perror("fork error");
     exit(1);
   } else if (pid == 0) {
-    printf("%d %d\n", sockets[0], sockets[1]);
     close(sockets[0]);
     chdir(FRONTEND_DIR);
     dup2(sockets[1], DEFAULT_FD);
@@ -67,7 +59,7 @@ void Dispatcher::ExecuteEntryVM() {
   }
 }
 
-std::string Dispatcher::ExecuteScript(char *script) {
+std::string* Dispatcher::ExecuteScript(char *script, int ulevel) {
   int sockets[2];
   int stdout_pipe[2];
 
@@ -76,24 +68,46 @@ std::string Dispatcher::ExecuteScript(char *script) {
     exit(1);
   }
 
+  if (pipe(stdout_pipe) != 0) {
+    perror("opening pipe");
+    exit(1);
+  }
+
+  int flags = fcntl(stdout_pipe[1], F_GETFD);
+  flags |= O_NONBLOCK;
+  if (fcntl(stdout_pipe[1], F_SETFD, flags)) {
+    perror("fcntl");
+    exit(1);
+  }
+
   pid_t pid = fork();
   if (pid < 0) {
     perror("fork error");
     exit(1);
   } else if (pid == 0) {
-    printf("%d %d\n", sockets[0], sockets[1]);
     close(sockets[0]);
+    close(stdout_pipe[0]);
     chdir(FRONTEND_DIR);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+    dup2(stdout_pipe[1], STDOUT_FILENO);
     dup2(sockets[1], DEFAULT_FD);
-    execl(FRONTEND_ENTRYPOINT, FRONTEND_ENTRYPOINT, (char *)NULL);
+    execl(FRONTEND_ENTRYPOINT, FRONTEND_ENTRYPOINT, script, NULL);
     exit(1);
   } else {
     close(sockets[1]);
+    close(stdout_pipe[1]);
     sockets[1] = NULL;
 
     while (1) {
-      if (this->HandleCommands(sockets[0], 1) != 0) break;
+      if (this->HandleCommands(sockets[0], ulevel) != 0) break;
     }
+    char *buf = (char *) malloc(256);
+    int len = read(stdout_pipe[0], buf, 256);
+    if (len <= 0)
+      len = 0;
+    std::string *output = new std::string(buf, len);
+    return output;
   }
 }
 
@@ -116,10 +130,10 @@ int Dispatcher::HandleCommands(int socket, int ulevel) {
       if (read(socket, &len, sizeof(len)) != sizeof(len)) return -1;
       char *buf = (char *)malloc(len);
       int ret;
-      if ((ret = this->fs_mgr_->ReadFile(filename, pos, len, ulevel, buf)) !=
-          -1) {
-        // TODO: Change check when https://github.com/Hhro/BLPfs/issues/3 is
-        // fixed.
+      if ((ret = this->fs_mgr_->ReadFile(filename, pos, len, ulevel, buf)) > 0) {
+        len = ret;
+      }
+      else {
         len = 0;
       }
       if (write(socket, &len, sizeof(len)) != sizeof(len)) return -1;
@@ -148,7 +162,7 @@ int Dispatcher::HandleCommands(int socket, int ulevel) {
           sizeof(filename_buf) - 1)
         return -1;
       std::string filename(filename_buf);
-      // this->fs_mgr_->RemoveFile(filename_buf);
+      this->fs_mgr_->RemoveFile(filename_buf, ulevel);
       break;
     }
     case OP_SIZE: {
@@ -156,14 +170,50 @@ int Dispatcher::HandleCommands(int socket, int ulevel) {
           sizeof(filename_buf) - 1)
         return -1;
       std::string filename(filename_buf);
-      // int size = this->fs_mgr_->SizeFile(filename_buf);
-      int size = 0;
+      int size = this->fs_mgr_->SizeFile(filename_buf, ulevel);
       if (size < 0) size = 0;
       if (write(socket, &size, sizeof(size)) != sizeof(size)) return -1;
       break;
     }
     case OP_EXECUTE: {
-      // TODO: implement execute logic
+      if (read(socket, filename_buf, sizeof(filename_buf) - 1) !=
+          sizeof(filename_buf) - 1)
+        return -1;
+      std::string filename(filename_buf);
+      std::string *output = NULL;
+      int flevel = this->fs_mgr_->GetFileLevel(filename);
+      if (flevel >= 0) {
+        int size = this->fs_mgr_->SizeFile(filename, flevel);
+        if (size > 0) {
+          char *buf = (char *) malloc(size);
+          this->fs_mgr_->ReadFile(filename, 0, size, flevel, buf);
+          output = this->ExecuteScript(buf, flevel);
+        }
+      }
+      if (ulevel >= flevel && output != NULL) {
+        uint32_t size = output->length();
+        if (write(socket, &size, sizeof(size)) != sizeof(size)) return -1;
+        if (size > 0) {
+          write(socket, output->c_str(), size);
+        }
+        delete output;
+      }
+      else {
+        uint32_t size = 0;
+        if (write(socket, &size, sizeof(size)) != sizeof(size)) return -1;
+      }
+      break;
+    }
+    case OP_CREATEFILE: {
+      if (read(socket, filename_buf, sizeof(filename_buf) - 1) !=
+          sizeof(filename_buf) - 1)
+        return -1;
+      std::string filename(filename_buf);
+      uint32_t len, flevel;
+      if (read(socket, &len, sizeof(len)) != sizeof(len)) return -1;
+      if (read(socket, &flevel, sizeof(flevel)) != sizeof(flevel)) return -1;
+      this->fs_mgr_->CreateFile(filename, len, flevel, ulevel);
+      break;
     }
   }
   return 0;

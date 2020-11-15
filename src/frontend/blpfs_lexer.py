@@ -1,5 +1,5 @@
 from enum import Enum
-from string import ascii_letters, digits
+from string import ascii_letters, digits, printable
 
 simple_escape_sequence = {
     'n': '\n',
@@ -117,7 +117,7 @@ class Lexer(object):
         if self.current_char != '"':
             self.error()
         self.advance()
-        while self.current_char is not None and self.current_char in ascii_letters + digits + '"\\':
+        while self.current_char is not None and self.current_char != '\n' and self.current_char in printable:
             if self.current_char == '"':
                 self.advance()
                 return result
