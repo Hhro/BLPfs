@@ -6,7 +6,7 @@
 
 int main() {
   FileSystemManager FSM;
-  char *flag = "THIS-IS-A-TEST-FLAG";
+  const char *flag = "THIS-IS-A-TEST-FLAG";
 
   std::ofstream output("blpfs");
 
