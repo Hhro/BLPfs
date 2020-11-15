@@ -46,22 +46,6 @@ struct CacheEntry {
 
 bool ParseFileHeader(const char* raw, FileHeader& fh);
 
-class File {
- private:
-  FileHeader fheader_;
-  char* data_;
-
- public:
-  File(const std::string& name, const uint32_t length, const uint8_t level,
-       bool in_use, const char* data);
-  File(const char* raw);
-  inline const std::string name() const { return fheader_.name; }
-  inline const uint32_t length() const { return fheader_.length; }
-  inline const uint8_t level() const { return fheader_.level; }
-  inline const bool in_use() const { return fheader_.in_use; }
-  inline const char* data() const { return data_; }
-};
-
 class Cache {
  private:
   typedef std::map<std::string, CacheEntry*> Slot;
@@ -107,6 +91,7 @@ class FileSystemManager {
     fs_stream_.seekp(0, std::ios_base::beg);
   }
   void ResetThreshold();
+  int64_t GetFileHeader(const std::string& fname, FileHeader& fh);
 
  public:
   bool MountBLPfs(const std::string& fs);
@@ -118,6 +103,9 @@ class FileSystemManager {
                 const uint32_t len, const char* data, const uint8_t ulevel);
   int RemoveFile(const std::string& fname, uint8_t ulevel);
   int SizeFile(const std::string& fname, uint8_t ulevel);
+
+  int GetFileLevel(const std::string& fname);
+
   inline bool DismountBLPfs() { fs_stream_.close(); }
 };
 
