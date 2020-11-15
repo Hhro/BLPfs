@@ -7,9 +7,10 @@
 #include <string>
 
 const int kNameSize = 8;
-const int kLengthSize = 2;
-const int kFileHeaderSize = kNameSize + kLengthSize;
+const int kPropSize = 2;
+const int kFileHeaderSize = kNameSize + kPropSize;
 const int kFileSize = 256;
+const int kBlkSize = kFileHeaderSize + kFileSize;
 const int kCacheSize = 4;
 
 // Levels
@@ -26,6 +27,7 @@ const int kOutOfBound = -4;
 const int kNotPermitted = -5;
 const int kAlreadyExists = -6;
 const int kInvalid = -7;
+const int kUseAfterDelete = -8;
 
 // Variable Status
 const int kUndefined = -1;
@@ -39,8 +41,10 @@ struct FileHeader {
 
 struct CacheEntry {
   FileHeader fheader;
-  uint8_t offset;
+  uint64_t offset;
 };
+
+bool ParseFileHeader(const char* raw, FileHeader& fh);
 
 class File {
  private:
@@ -65,7 +69,8 @@ class Cache {
 
   std::string threshold_;
 
-  // methods
+  inline CacheEntry*& operator[](const std::string key) { return slots_[key]; }
+  const std::string& GetNextMinRef();
 
  public:
   // getter
@@ -81,29 +86,27 @@ class Cache {
   Slot::iterator begin() { return slots_.begin(); }
   Slot::iterator end() { return slots_.end(); }
 
-  // get_item
-  inline CacheEntry*& operator[](const std::string key) { return slots_[key]; }
-
   // methods
   bool Hit(const std::string& key) { return slots_.find(key) != slots_.end(); }
   void Put(const std::string& key, CacheEntry*& entry);
   bool Get(const std::string& key, CacheEntry*& entry);
+  bool Remove(const std::string& key);
 };
 
 class FileSystemManager {
  private:
   std::fstream fs_stream_;
-  std::map<std::string, int> ref_count_;
+  std::map<std::string, uint32_t> ref_count_;
   Cache cache_;
 
   int FindFile(const std::string& fname);
   int FindEmptyBlock();
   void Ref(const std::string& key);
-  bool ParseFileHeader(const char* raw, FileHeader& fh) const;
   inline bool Rewind() {
     fs_stream_.seekg(0, std::ios_base::beg);
     fs_stream_.seekp(0, std::ios_base::beg);
   }
+  void ResetThreshold();
 
  public:
   bool MountBLPfs(const std::string& fs);
@@ -112,9 +115,10 @@ class FileSystemManager {
   int ReadFile(const std::string& fname, const uint32_t pos, const uint32_t len,
                const uint8_t ulevel, char* out);
   int WriteFile(const std::string& fname, const uint32_t pos,
-                const uint32_t len, const char* data, const uint32_t ulevel);
-  bool RemoveFile(const std::string& fname);
-  int SizeFile(const std::string& fname);
+                const uint32_t len, const char* data, const uint8_t ulevel);
+  int RemoveFile(const std::string& fname, uint8_t ulevel);
+  int SizeFile(const std::string& fname, uint8_t ulevel);
+  inline bool DismountBLPfs() { fs_stream_.close(); }
 };
 
 #endif
