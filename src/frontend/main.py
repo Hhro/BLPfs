@@ -19,7 +19,7 @@ if __name__ == "__main__":
             line = input('> ')
             if line == 'exit':
                 break
-            
+
             try:
                 lexer = Lexer(line)
                 parser = Parser(lexer)

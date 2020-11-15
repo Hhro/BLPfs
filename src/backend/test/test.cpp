@@ -26,7 +26,7 @@ int main() {
       FSM.CreateFile("aaaa.txt", 0x100, 1, 1);
       FSM.CreateFile("bbbbbbbb", 0x50, 1, 1);
       FSM.CreateFile("cccccccc", 0x50, 1, 1);
-      FSM.CreateFile("dddddddd", 0x50, 1, 1);
+      FSM.CreateFile("dddd____", 0x50, 1, 1);
     }
     FSM.CreateFile("bbbbbbbb", 0x51, 1, 1);
 

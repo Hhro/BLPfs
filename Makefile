@@ -5,6 +5,7 @@ DEPLOYDIR = deploy/
 BACKENDDEPLOY = $(DEPLOYDIR)/backend/
 PRODUCTIONDIR = production/
 BACKENDPRODUCTION = $(PRODUCTIONDIR)/backend/
+TESTDIR = test/
 
 PRODUCTIONFLAG = THIS-IS-A-TEST-FLAG
 
@@ -50,9 +51,16 @@ production: build
 	$(BACKENDSRC)/tool/fs_gen $(BACKENDPRODUCTION)/blpfs $(PRODUCTIONFLAG)
 
 	cp scripts/run_production.sh $(PRODUCTIONDIR)/run.sh
-	
+
+test: production
+	# Copy exploits
+	mv production $(TESTDIR)
+	cp $(TESTDIR)/backend/blpfs $(TESTDIR)
+	cp exploit/* $(TESTDIR)
+
 clean:
 	#Clean src directory
 	$(MAKE) clean -C $(BACKENDSRC)
 	rm -rf $(PRODUCTIONDIR)
 	rm -rf $(DEPLOYDIR)
+	rm -rf $(TESTDIR)
