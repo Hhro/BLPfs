@@ -19,8 +19,8 @@ int main() {
   FileSystemManager FSM;
 
   if (FSM.MountBLPfs("blpfs")) {
-    FSM.CreateFile("flag.txt", 0x50, 1, 1);
-    FSM.WriteFile("flag.txt", 0, 0x50, flag, 1);
+    FSM.CreateFile("flag.txt", 0x50, 2, 2);
+    FSM.WriteFile("flag.txt", 0, 0x50, flag, 2);
 
     for (int i = 0; i < 4; i++) {
       FSM.CreateFile("aaaa.txt", 0x100, 1, 1);
@@ -28,7 +28,7 @@ int main() {
       FSM.CreateFile("cccccccc", 0x50, 1, 1);
       FSM.CreateFile("dddddddd", 0x50, 1, 1);
     }
-    FSM.CreateFile("bbbbbbbb", 0x50, 1, 1);
+    FSM.CreateFile("bbbbbbbb", 0x51, 1, 1);
 
     FSM.WriteFile("aaaa.txt", 0x100, 0x8, flagtxt, 1);
 

@@ -4,6 +4,37 @@
 #include <iostream>
 #include <iterator>
 
+/* Cache */
+
+void Cache::Put(const std::string &key, CacheEntry *&entry) {
+  // Remove least referenced entry.
+  if (slots_.size() == kCacheSize) {
+    Remove(threshold_);
+  }
+
+  threshold_.assign(key);
+  slots_.insert(make_pair(key, entry));
+}
+
+bool Cache::Get(const std::string &key, CacheEntry *&entry) {
+  if (Hit(key)) {
+    entry = slots_[key];
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool Cache::Remove(const std::string &key) {
+  if (Hit(key)) {
+    delete slots_[key];
+    slots_.erase(key);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 /* FileSystemManager */
 
 bool ParseFileHeader(const char *raw, FileHeader &fh) {
@@ -155,6 +186,48 @@ void FileSystemManager::ResetThreshold() {
   }
 }
 
+int64_t FileSystemManager::GetFileHeader(const std::string &fname,
+                                         FileHeader &fh) {
+  int res = kUndefined;
+  int64_t offset = kUndefined;
+  CacheEntry *ce = nullptr;
+  char *fh_raw = new char[kFileHeaderSize];
+
+  if (!fs_stream_.is_open()) {
+    res = kFSNotOpened;
+    goto end;
+  }
+
+  Rewind();
+
+  if (cache_.Hit(fname)) {
+    Ref(fname);
+    cache_.Get(fname, ce);
+    offset = ce->offset;
+    fh = ce->fheader;
+  } else {
+    if ((offset = FindFile(fname)) < 0) {
+      res = kInvalid;
+      goto end;
+    }
+
+    fs_stream_.seekg(offset, std::ios::beg);
+
+    // Parse fileheader
+    fs_stream_.read(fh_raw, kFileHeaderSize);
+    if (!ParseFileHeader(fh_raw, fh)) {
+      res = kFSCorrupted;
+      goto end;
+    }
+  }
+  res = offset;
+
+end:
+  Rewind();
+  delete[] fh_raw;
+  return res;
+}
+
 bool FileSystemManager::MountBLPfs(const std::string &fs) {
   fs_stream_.open(fs);
 
@@ -252,26 +325,9 @@ int FileSystemManager::ReadFile(const std::string &fname, const uint32_t pos,
   }
 
   Rewind();
-
-  if (cache_.Hit(fname)) {
-    Ref(fname);
-    cache_.Get(fname, ce);
-    offset = ce->offset;
-    fh = ce->fheader;
-  } else {
-    if ((offset = FindFile(fname)) < 0) {
-      res = kInvalid;
-      goto end;
-    }
-
-    fs_stream_.seekg(offset, std::ios::beg);
-
-    // Parse fileheader
-    fs_stream_.read(fh_raw, kFileHeaderSize);
-    if (!ParseFileHeader(fh_raw, fh)) {
-      res = kFSCorrupted;
-      goto end;
-    }
+  if ((offset = GetFileHeader(fname, fh)) < 0) {
+    res = kInvalid;
+    goto end;
   }
 
   // Check OOB
@@ -330,24 +386,9 @@ int FileSystemManager::WriteFile(const std::string &fname, const uint32_t pos,
   }
 
   Rewind();
-  if (cache_.Hit(fname)) {
-    Ref(fname);
-    cache_.Get(fname, ce);
-    offset = ce->offset;
-    fh = ce->fheader;
-  } else {
-    if ((offset = FindFile(fname)) < 0) {
-      res = kInvalid;
-      goto end;
-    }
-    fs_stream_.seekg(offset, std::ios::beg);
-
-    // Parse fileheader
-    fs_stream_.read(fh_raw, kFileHeaderSize);
-    if (!ParseFileHeader(fh_raw, fh)) {
-      res = kFSCorrupted;
-      goto end;
-    }
+  if ((offset = GetFileHeader(fname, fh)) < 0) {
+    res = kInvalid;
+    goto end;
   }
 
   // Check OOB
@@ -398,23 +439,9 @@ int FileSystemManager::RemoveFile(const std::string &fname, uint8_t ulevel) {
   }
 
   Rewind();
-  if (cache_.Hit(fname)) {
-    cache_.Get(fname, ce);
-    offset = ce->offset;
-    fh = ce->fheader;
-  } else {
-    if ((offset = FindFile(fname)) < 0) {
-      res = kInvalid;
-      goto end;
-    }
-    fs_stream_.seekg(offset, std::ios::beg);
-
-    // Parse fileheader
-    fs_stream_.read(fh_raw, kFileHeaderSize);
-    if (!ParseFileHeader(fh_raw, fh)) {
-      res = kFSCorrupted;
-      goto end;
-    }
+  if ((offset = GetFileHeader(fname, fh)) < 0) {
+    res = kInvalid;
+    goto end;
   }
 
   // Check no write-down
@@ -456,11 +483,9 @@ end:
 
 int FileSystemManager::SizeFile(const std::string &fname, uint8_t ulevel) {
   int res = kUndefined;
-  int64_t offset = kUndefined;
   CacheEntry *ce = nullptr;
   char *fh_raw = new char[kFileHeaderSize]();
 
-  char *data = nullptr;
   FileHeader fh;
 
   memset(&fh, 0, sizeof(FileHeader));
@@ -470,24 +495,9 @@ int FileSystemManager::SizeFile(const std::string &fname, uint8_t ulevel) {
   }
 
   Rewind();
-  if (cache_.Hit(fname)) {
-    Ref(fname);
-    cache_.Get(fname, ce);
-    offset = ce->offset;
-    fh = ce->fheader;
-  } else {
-    if ((offset = FindFile(fname)) < 0) {
-      res = kInvalid;
-      goto end;
-    }
-    fs_stream_.seekg(offset, std::ios::beg);
-
-    // Parse fileheader
-    fs_stream_.read(fh_raw, kFileHeaderSize);
-    if (!ParseFileHeader(fh_raw, fh)) {
-      res = kFSCorrupted;
-      goto end;
-    }
+  if ((GetFileHeader(fname, fh)) < 0) {
+    res = kInvalid;
+    goto end;
   }
 
   // Check no read-up
@@ -510,58 +520,31 @@ end:
   return res;
 }
 
-/* File */
+int FileSystemManager::GetFileLevel(const std::string &fname) {
+  int res = kUndefined;
+  CacheEntry *ce = nullptr;
+  char *fh_raw = new char[kFileHeaderSize]();
+  FileHeader fh;
 
-File::File(const std::string &name, const uint32_t length, const uint8_t level,
-           bool in_use, const char *data) {
-  fheader_.name.assign(name);
+  memset(&fh, 0, sizeof(FileHeader));
 
-  fheader_.length = length;
-  fheader_.level = level;
-  fheader_.in_use = in_use;
-
-  if (data) {
-    data_ = new char[fheader_.length]();
-    memcpy(data_, data, fheader_.length);
-  }
-}
-
-File::File(const char *raw) {
-  if (raw) {
-    data_ = new char[fheader_.length]();
-    ParseFileHeader(raw, fheader_);
-
-    memcpy(data_, raw + kFileHeaderSize, fheader_.length);
-  }
-}
-
-/* Cache */
-
-void Cache::Put(const std::string &key, CacheEntry *&entry) {
-  // Remove least referenced entry.
-  if (slots_.size() == kCacheSize) {
-    Remove(threshold_);
+  if (!fs_stream_.is_open()) {
+    return -1;
   }
 
-  threshold_.assign(key);
-  slots_.insert(make_pair(key, entry));
-}
+  Rewind();
+  GetFileHeader(fname, fh);
 
-bool Cache::Get(const std::string &key, CacheEntry *&entry) {
-  if (Hit(key)) {
-    entry = slots_[key];
-    return true;
-  } else {
-    return false;
+  // Check UAF
+  if (fh.in_use == false) {
+    res = kUseAfterDelete;
+    goto end;
   }
-}
 
-bool Cache::Remove(const std::string &key) {
-  if (Hit(key)) {
-    delete slots_[key];
-    slots_.erase(key);
-    return true;
-  } else {
-    return false;
-  }
+  res = fh.level;
+
+end:
+  Rewind();
+  delete[] fh_raw;
+  return res;
 }
