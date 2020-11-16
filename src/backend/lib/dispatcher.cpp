@@ -182,7 +182,7 @@ int Dispatcher::HandleCommands(int socket, int ulevel) {
       std::string filename(filename_buf);
       std::string *output = NULL;
       int flevel = this->fs_mgr_->GetFileLevel(filename);
-      if (flevel >= 0) {
+      if (flevel >= 0 && ulevel <= flevel) {
         int size = this->fs_mgr_->SizeFile(filename, flevel);
         if (size > 0) {
           char *buf = (char *) malloc(size);
