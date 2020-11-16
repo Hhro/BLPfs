@@ -51,6 +51,7 @@ production: build
 	$(BACKENDSRC)/tool/fs_gen $(BACKENDPRODUCTION)/blpfs $(PRODUCTIONFLAG)
 
 	cp scripts/run_production.sh $(PRODUCTIONDIR)/run.sh
+	cp config/Dockerfile $(PRODUCTIONDIR)/Dockerfile
 
 test: production
 	# Copy exploits
