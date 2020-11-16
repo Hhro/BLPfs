@@ -4,12 +4,13 @@ service blpfsm
     socket_type = stream
     protocol    = tcp
     wait        = no
-    user        = user
+    user        = cykor
     type        = UNLISTED
+    # This is challenge port
     port        = 31337                   
     bind        = 0.0.0.0
-    server      = /home/user/run.sh
-    # replace helloworld to your program
+    server      = /home/cykor/run.sh
+    # This is challenge flag
     server_args = THIS-IS-A-TEST-FLAG      
     # safety options
     per_source	= 10 # the maximum instances of this service per source IP address
