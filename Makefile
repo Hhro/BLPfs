@@ -52,6 +52,7 @@ production: build
 
 	cp scripts/run_production.sh $(PRODUCTIONDIR)/run.sh
 	cp config/Dockerfile $(PRODUCTIONDIR)/Dockerfile
+	cp README.md $(PRODUCTIONDIR)/README.md
 
 test: production
 	# Copy exploits
