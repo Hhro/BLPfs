@@ -2,7 +2,7 @@ from blpfs_abi import check_fd_open, createfile, execute, read, remove, size, wr
 from blpfs_parser import APICall, Parser, Program
 from blpfs_lexer import Lexer, TokenType
 
-APIList = [ 'print', 'read', 'write', 'remove', 'size', 'execute', 'createfile', 'copy', 'append' ]
+APIList = [ 'print', 'read', 'write', 'remove', 'size', 'execute', 'createfile' ]
 
 class NodeVisitor(object):
     def visit(self, node):
@@ -125,35 +125,6 @@ class Interpreter(NodeVisitor):
             self.error()
 
         return createfile(self.conn, params[0], params[1], params[2])
-
-    def api_copy(self, params) -> int:
-        if len(params) != 5:
-            self.error()
-        if not isinstance(params[0], bytearray):
-            self.error()
-        if not isinstance(params[1], bytearray):
-            self.error()
-        if not isinstance(params[2], int):
-            self.error()
-        if not isinstance(params[3], int):
-            self.error()
-        if not isinstance(params[4], int):
-            self.error()
-
-        buf = read(self.conn, params[0], params[2], params[4])
-        return write(self.conn, params[1], params[3], buf)
-
-    def api_append(self, params) -> int:
-        if len(params) != 2:
-            self.error()
-        if not isinstance(params[0], bytearray):
-            self.error()
-        if not isinstance(params[1], bytearray):
-            self.error()
-
-        filesize = size(self.conn, params[0])
-        return write(self.conn, params[0], filesize, params[1])
-
 
     def interpret(self):
         tree = self.parser.parse()
