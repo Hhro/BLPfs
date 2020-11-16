@@ -1,7 +1,7 @@
 # Bell-LaPadula file system (BLPfs)
 
 We adopted Bell-LaPadula model into a filesystem, 
-and we think this is super safe. Is it?
+and we think this is super safe. Isn't it?
 
 ## Usage
 
