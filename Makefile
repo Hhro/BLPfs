@@ -57,6 +57,7 @@ test: production
 	mv production $(TESTDIR)
 	cp $(TESTDIR)/backend/blpfs $(TESTDIR)
 	cp exploit/* $(TESTDIR)
+	cp config/Dockerfile $(TESTDIR)
 
 clean:
 	#Clean src directory
